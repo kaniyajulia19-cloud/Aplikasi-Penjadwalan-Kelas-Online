@@ -1,0 +1,472 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Clanvas - Aplikasi Penjadwalan Kelas</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --c-blue: #A2D2FF;
+            --c-blue-dark: #8EBBFF;
+            --c-peach: #FFDAB9;
+            --c-peach-dark: #FFC8B2;
+            --c-yellow: #FFF6A7;
+            --c-yellow-dark: #FFEC82;
+            /* 3. Latar belakang lebih terang */
+            --c-bg: linear-gradient(135deg, #FFF9F5 0%, #F7FAFF 100%);
+            --c-text-dark: #1e293b; 
+            --c-text-light: #64748b;
+            --c-white: #ffffff;
+            --c-border: #e2e8f0;
+            --c-shadow: rgba(44, 62, 80, 0.08);
+            --c-shadow-lg: rgba(44, 62, 80, 0.12);
+        }
+
+        html, body {
+            height: 100%;
+            overflow: hidden;
+        }
+        #app, .view {
+            height: 100%;
+            overflow-y: auto;
+            overflow-x: hidden;
+            background: var(--c-bg);
+        }
+        body { font-family: 'Poppins', sans-serif; color: var(--c-text-dark); }
+        .view { display: none; }
+        .active-view { display: block; animation: fadeIn 0.5s ease-in-out; }
+        #landingView.active-view, #loginView.active-view { display: flex; }
+        
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        .staggered-fade-in { opacity: 0; animation: fadeIn 0.6s ease-out forwards; }
+        
+        .form-container { 
+            background-color: rgba(255, 255, 255, 0.8); 
+            backdrop-filter: blur(12px); 
+            -webkit-backdrop-filter: blur(12px); 
+            border: 1px solid rgba(255, 255, 255, 0.5);
+            box-shadow: 0 10px 25px -5px var(--c-shadow), 0 8px 10px -6px var(--c-shadow);
+        }
+        .main-tab-btn { transition: all 0.3s ease; }
+        .main-tab-btn.active { 
+            background-color: var(--c-blue-dark); 
+            color: var(--c-text-dark); 
+            font-weight: 700;
+            box-shadow: 0 4px 15px var(--c-shadow-lg);
+        }
+        .schedule-view-btn.active { background-color: var(--c-peach-dark); color: var(--c-text-dark); }
+        .fixed-modal { position: fixed; inset: 0; background-color: rgba(0,0,0,0.5); display: none; align-items: center; justify-content: center; z-index: 50; padding: 1rem; }
+        .fixed-modal.active { display: flex; animation: fadeInModal 0.3s ease-out; }
+        @keyframes fadeInModal { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
+        .mood-emoji { transition: transform 0.2s; cursor: pointer; }
+        .mood-emoji:hover { transform: scale(1.2); }
+        .mood-emoji.selected { transform: scale(1.2); filter: drop-shadow(0 0 5px var(--c-yellow-dark)); }
+        
+        .org-chart { text-align: center; }
+        .org-level { margin-bottom: 20px; }
+        .org-level .org-node { display: inline-block; vertical-align: top; padding: 8px 16px; background-color: var(--c-white); border: 1px solid var(--c-border); border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); margin: 0 10px; min-width: 150px;}
+        .org-role { font-size: 0.75rem; color: var(--c-text-light); }
+        .org-name { font-weight: 600; color: var(--c-blue-dark); }
+        .org-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 1rem; }
+
+        .stats-container { display: flex; justify-content: space-around; align-items: flex-end; height: 150px; border-bottom: 2px solid var(--c-border); padding: 10px 0; }
+        .stat-bar-wrapper { flex: 1; text-align: center; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; }
+        .stat-bar { width: 30px; background-color: var(--c-blue); border-radius: 5px 5px 0 0; transition: height 0.5s ease-out; }
+        .stat-label { font-size: 1.5rem; margin-top: 5px; }
+        .stat-percent { font-size: 0.8rem; font-weight: 600; color: var(--c-text-dark); }
+
+        .toggle-switch { position: relative; display: inline-block; width: 50px; height: 28px; }
+        .toggle-switch input { opacity: 0; width: 0; height: 0; }
+        .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #ccc; transition: .4s; border-radius: 34px; }
+        .slider:before { position: absolute; content: ""; height: 20px; width: 20px; left: 4px; bottom: 4px; background-color: white; transition: .4s; border-radius: 50%; }
+        input:checked + .slider { background-color: var(--c-blue); }
+        input:checked + .slider:before { transform: translateX(22px); }
+        
+        .elegant-title {
+            text-shadow: 0px 3px 10px rgba(162, 210, 255, 0.5);
+        }
+        
+        /* 1. Animasi Kupu-kupu */
+        .butterflies-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            pointer-events: none;
+            z-index: 0;
+        }
+        .butterfly {
+            position: absolute;
+            width: 20px;
+            height: 20px;
+            opacity: 0;
+            animation: fly-around 15s linear infinite;
+        }
+        .butterfly::before, .butterfly::after {
+            content: '';
+            position: absolute;
+            width: 12px;
+            height: 18px;
+            background-color: var(--c-peach-dark);
+            border-radius: 50% 50% 0 50%;
+        }
+        .butterfly::before {
+            left: 0;
+            transform-origin: 0 100%;
+            transform: rotate(20deg);
+            animation: flutter-left 0.3s infinite alternate;
+        }
+        .butterfly::after {
+            right: 0;
+            background-color: var(--c-blue);
+            transform-origin: 100% 100%;
+            transform: rotate(-20deg);
+            animation: flutter-right 0.3s infinite alternate;
+        }
+
+        @keyframes flutter-left {
+            to { transform: rotate(45deg) scale(1.05); }
+        }
+        @keyframes flutter-right {
+            to { transform: rotate(-45deg) scale(1.05); }
+        }
+
+        @keyframes fly-around {
+            0% { top: 110%; left: -10%; transform: scale(0.8) rotate(20deg); opacity: 0; }
+            10% { opacity: 0.7; }
+            50% { top: 30%; left: 50%; transform: scale(1.2) rotate(-10deg); }
+            90% { opacity: 0.7; }
+            100% { top: -10%; left: 110%; transform: scale(0.8) rotate(30deg); opacity: 0; }
+        }
+
+        .butterfly:nth-child(1) { animation-duration: 20s; animation-delay: 0s; }
+        .butterfly:nth-child(2) { animation-duration: 17s; animation-delay: 3s; }
+        .butterfly:nth-child(3) { animation-duration: 22s; animation-delay: 6s; }
+        .butterfly:nth-child(4) { animation-duration: 18s; animation-delay: 9s; }
+    </style>
+</head>
+<body>
+
+    <div id="app" class="min-h-screen">
+
+        <!-- ===== HALAMAN AWAL (LANDING PAGE) ===== -->
+        <div id="landingView" class="view items-center justify-center p-4 overflow-hidden relative">
+            <div class="butterflies-container">
+                <div class="butterfly"></div>
+                <div class="butterfly"></div>
+                <div class="butterfly"></div>
+                <div class="butterfly"></div>
+            </div>
+            <div class="text-center relative z-10">
+                <div class="mb-6">
+                     <svg class="w-56 h-56 mx-auto staggered-fade-in" style="animation-delay: 200ms;" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+                        <defs>
+                            <filter id="yellow-glow" x="-50%" y="-50%" width="200%" height="200%">
+                                <feDropShadow dx="0" dy="0" stdDeviation="8" flood-color="var(--c-yellow-dark)" flood-opacity="0.8"/>
+                            </filter>
+                        </defs>
+                        <!-- Book -->
+                        <g filter="url(#yellow-glow)">
+                            <path d="M 25 160 C 40 175, 80 175, 100 160 L 100 40 C 80 25, 40 25, 25 40 Z" fill="var(--c-white)"/>
+                            <path d="M 175 160 C 160 175, 120 175, 100 160 L 100 40 C 120 25, 160 25, 175 40 Z" fill="var(--c-white)"/>
+                            <path d="M 100 42 L 100 158" stroke="#EAEAEA" stroke-width="2"/>
+                        </g>
+                        <!-- Butterfly -->
+                        <g transform="translate(155 35) rotate(25) scale(0.5)">
+                            <path d="M 0 0 Q 25 -25 30 0 Q 10 20 0 0" fill="var(--c-yellow)"/>
+                            <path d="M 0 0 Q -25 -25 -30 0 Q -10 20 0 0" fill="var(--c-yellow)"/>
+                            <path d="M 0 0 Q 20 25 0 30 Q -15 20 0 0" fill="var(--c-yellow-dark)"/>
+                            <path d="M 0 0 Q -20 25 0 30 Q 15 20 0 0" fill="var(--c-yellow-dark)"/>
+                            <path d="M 0 -10 L 0 15" stroke="var(--c-peach-dark)" stroke-width="2.5" stroke-linecap="round"/>
+                        </g>
+                    </svg>
+                </div>
+                <h1 class="text-2xl font-bold staggered-fade-in" style="animation-delay: 400ms; color: var(--c-text-light);">Hello, Selamat Datang di</h1>
+                <h2 class="text-7xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-yellow-400 my-2 staggered-fade-in elegant-title" style="animation-delay: 600ms;">Clanvas</h2>
+                <p class="max-w-xl mx-auto mt-4 staggered-fade-in" style="animation-delay: 800ms; color: var(--c-text-light);">Atur semua jadwal kelasmu di satu tempat. Praktis, mudah, dan efisien.</p>
+                <div class="mt-10 flex flex-col sm:flex-row gap-4 justify-center staggered-fade-in" style="animation-delay: 1000ms;">
+                     <button id="goToLoginSignInBtn" class="font-semibold py-3 px-10 rounded-full shadow-lg transition-all transform hover:scale-105" style="background-color: var(--c-blue); color: var(--c-text-dark);">Sign In</button>
+                     <button id="goToLoginSignUpBtn" class="font-semibold py-3 px-10 rounded-full shadow-lg transition-all transform hover:scale-105" style="background-color: var(--c-peach-dark); color: var(--c-white);">Sign Up</button>
+                </div>
+            </div>
+        </div>
+       
+        <!-- ===== HALAMAN LOGIN & DAFTAR ===== -->
+        <div id="loginView" class="view items-center justify-center p-4">
+            <div class="w-full max-w-md">
+                <div class="form-container p-8 rounded-2xl">
+                    <h2 id="formTitle" class="text-3xl font-bold text-center mb-2" style="color: var(--c-text-dark);">Masuk Akun</h2>
+                    <p class="text-center mb-6" style="color: var(--c-text-light);">Gunakan akun yang telah terdaftar.</p>
+                    <form id="authForm">
+                        <div class="mb-4"><label for="email" class="block text-sm font-medium mb-1" style="color: var(--c-text-light);">Email</label><input type="email" id="email" class="w-full px-4 py-2 border rounded-lg focus:ring-2 bg-white/50" style="border-color: var(--c-border); --tw-ring-color: var(--c-peach);" placeholder="contoh: siswa@sekolah.id" required></div>
+                        <div class="mb-4"><label for="password" class="block text-sm font-medium mb-1" style="color: var(--c-text-light);">Password</label><input type="password" id="password" class="w-full px-4 py-2 border rounded-lg focus:ring-2 bg-white/50" style="border-color: var(--c-border); --tw-ring-color: var(--c-peach);" placeholder="kata sandi" required></div>
+                        <div id="roleSelection" class="mb-4 hidden"><label class="block text-sm font-medium mb-2" style="color: var(--c-text-light);">Daftar sebagai</label><div class="flex gap-4"><label class="flex-1"><input type="radio" name="role" value="Siswa" class="sr-only peer" checked><div class="p-3 text-center border rounded-lg cursor-pointer peer-checked:text-white peer-checked:font-bold" style="border-color: var(--c-border); --peer-checked-bg-color: var(--c-blue-dark);" onmouseover="this.style.borderColor=getComputedStyle(this).getPropertyValue('--c-blue-dark')" onmouseout="this.style.borderColor=getComputedStyle(this).getPropertyValue('--c-border')" onclick="this.style.backgroundColor=getComputedStyle(this).getPropertyValue('--peer-checked-bg-color')">Siswa</div></label><label class="flex-1"><input type="radio" name="role" value="Admin" class="sr-only peer"><div class="p-3 text-center border rounded-lg cursor-pointer peer-checked:text-white peer-checked:font-bold" style="border-color: var(--c-border); --peer-checked-bg-color: var(--c-blue-dark);" onmouseover="this.style.borderColor=getComputedStyle(this).getPropertyValue('--c-blue-dark')" onmouseout="this.style.borderColor=getComputedStyle(this).getPropertyValue('--c-border')" onclick="this.style.backgroundColor=getComputedStyle(this).getPropertyValue('--peer-checked-bg-color')">Admin</div></label></div></div>
+                        <div id="gradeSelection" class="mb-6 hidden">
+                            <label for="grade" class="block text-sm font-medium mb-1" style="color: var(--c-text-light);">Kelas</label>
+                            <select id="grade" class="w-full px-4 py-2 border rounded-lg focus:ring-2 bg-white/50" style="border-color: var(--c-border); --tw-ring-color: var(--c-peach);">
+                                <option value="10">10</option>
+                                <option value="11">11</option>
+                                <option value="12">12</option>
+                            </select>
+                        </div>
+                        <button type="submit" id="authSubmitBtn" class="w-full text-white font-bold py-3 px-4 rounded-lg transition" style="background-color: var(--c-blue-dark); hover:background-color: var(--c-blue);">Masuk</button>
+                    </form>
+                    <p class="text-center text-sm mt-6" style="color: var(--c-text-light);"><span id="authToggleText">Belum punya akun?</span><button type="button" id="authToggleBtn" class="font-semibold hover:underline" style="color: var(--c-peach-dark);">Daftar di sini</button></p>
+                </div>
+                <button id="backToLandingBtn" class="mt-4 flex items-center gap-2 mx-auto" style="color: var(--c-text-light);"><i class="fas fa-arrow-left"></i> Kembali ke Awal</button>
+            </div>
+        </div>
+       
+        <div id="classSelectionView" class="view"></div>
+        <div id="adminDashboardView" class="view"></div>
+        <div id="studentDashboardView" class="view"></div>
+    </div>
+   
+    <!-- MODAL-MODAL -->
+    <div id="classModal" class="fixed-modal"><div class="bg-white rounded-lg shadow-xl w-full max-w-md p-6"><h3 id="classModalTitle" class="text-xl font-bold mb-4"></h3><form id="classForm"><input type="hidden" id="classId">
+        <div class="grid grid-cols-2 gap-4">
+            <div>
+                <label for="classGrade" class="block text-sm font-medium">Tingkat Kelas</label>
+                <select id="classGrade" class="w-full mt-1 p-2 border rounded-md">
+                    <option value="10">10</option>
+                    <option value="11">11</option>
+                    <option value="12">12</option>
+                </select>
+            </div>
+            <div>
+                <label for="classLetter" class="block text-sm font-medium">Nama Kelas (Huruf)</label>
+                <select id="classLetter" class="w-full mt-1 p-2 border rounded-md"></select>
+            </div>
+        </div>
+        <div class="mt-4 flex justify-end gap-2"><button type="button" class="modal-close-btn bg-gray-200 py-2 px-4 rounded-md">Batal</button><button type="submit" class="text-white py-2 px-4 rounded-md" style="background-color: var(--c-blue-dark);">Simpan</button></div></form></div></div>
+    <div id="scheduleEditModal" class="fixed-modal"><div class="bg-white rounded-lg shadow-xl w-full max-w-4xl p-6 max-h-[90vh] flex flex-col"><h3 id="scheduleModalTitle" class="text-xl font-bold mb-4 text-center"></h3><div class="flex-grow overflow-y-auto pr-2 -mr-2"><div class="mb-6"><h4 class="font-bold text-lg mb-2 border-b pb-1">Jadwal Pelajaran</h4><div id="lessonScheduleFormContainer" class="space-y-2"></div><button type="button" id="addLessonBtn" class="mt-3 text-sm text-white py-1 px-3 rounded-md" style="background-color: var(--c-blue-dark);">+ Tambah Pelajaran</button></div><div class="mb-6"><h4 class="font-bold text-lg mb-2 border-b pb-1">Jadwal Piket</h4><div id="picketScheduleFormContainer" class="space-y-2"></div><button type="button" id="addPicketBtn" class="mt-3 text-sm text-white py-1 px-3 rounded-md" style="background-color: var(--c-blue-dark);">+ Tambah Hari Piket</button></div><div><h4 class="font-bold text-lg mb-2 border-b pb-1">Organigram & Wali Kelas</h4><div id="organigramFormContainer" class="space-y-3"></div></div></div><div class="mt-6 flex justify-end gap-2 border-t pt-4"><button type="button" class="modal-close-btn bg-gray-200 py-2 px-4 rounded-md">Tutup</button><button type="button" id="saveScheduleChangesBtn" class="text-white py-2 px-4 rounded-md" style="background-color: var(--c-blue-dark);">Simpan Semua Perubahan</button></div></div></div>
+    <div id="confirmModal" class="fixed-modal"><div class="bg-white rounded-lg shadow-xl w-full max-w-sm p-6 text-center"><h3 class="text-lg font-bold mb-2">Konfirmasi Tindakan</h3><p id="confirmText" class="text-gray-600 mb-6"></p><div class="flex justify-center gap-4"><button id="cancelDeleteBtn" class="bg-gray-200 py-2 px-6 rounded-md">Batal</button><button id="confirmDeleteBtn" class="bg-red-500 text-white py-2 px-6 rounded-md">Hapus</button></div></div></div>
+    <div id="moodStatsModal" class="fixed-modal"><div class="bg-white rounded-lg shadow-xl w-full max-w-lg p-6"><h3 class="text-xl font-bold mb-1 text-center">Rekap Mood Bulan Ini</h3><p id="moodMonthYear" class="text-center text-gray-500 mb-4"></p><div id="moodStatsChart" class="stats-container"></div><p id="moodSummary" class="text-center text-gray-600 mt-4 text-sm"></p><div class="mt-6 flex justify-end"><button type="button" class="modal-close-btn bg-gray-200 py-2 px-4 rounded-md">Tutup</button></div></div></div>
+    <div id="reminderNotification" class="fixed top-5 right-5 z-50 w-full max-w-sm bg-white p-4 rounded-lg shadow-2xl border-l-4 hidden transform transition-transform duration-300 translate-x-full" style="border-color: var(--c-yellow-dark);"><div class="flex items-start"><div class="flex-shrink-0 pt-0.5"><i class="fas fa-bell text-xl" style="color: var(--c-yellow-dark);"></i></div><div class="ml-3 w-0 flex-1"><p class="text-sm font-medium text-gray-900">Pengingat Jadwal Hari Ini!</p><div id="reminderContent" class="mt-1 text-sm text-gray-600"></div></div><div class="ml-4 flex-shrink-0 flex"><button class="closeReminderBtn inline-flex text-gray-400 hover:text-gray-500"><i class="fas fa-times"></i></button></div></div></div>
+    <div id="alertBox" class="fixed top-5 right-5 z-50 bg-red-500 text-white py-2 px-4 rounded-lg shadow-md hidden"><p id="alertText"></p></div>
+
+    <script>
+    document.addEventListener('DOMContentLoaded', () => {
+        let db = {}, currentUser = null, currentEditingClassId = null, isRegisterMode = false, classIdToDelete = null;
+        const views = { landing: document.getElementById('landingView'), login: document.getElementById('loginView'), classSelection: document.getElementById('classSelectionView'), studentDashboard: document.getElementById('studentDashboardView'), adminDashboard: document.getElementById('adminDashboardView') };
+        const modals = { class: document.getElementById('classModal'), schedule: document.getElementById('scheduleEditModal'), confirm: document.getElementById('confirmModal'), moodStats: document.getElementById('moodStatsModal') };
+        const showView = (id) => { Object.values(views).forEach(v => v.classList.remove('active-view')); if(views[id]) views[id].classList.add('active-view'); };
+        const showModal = (id) => { if(modals[id]) modals[id].classList.add('active'); };
+        const closeModal = (id) => { if(modals[id]) modals[id].classList.remove('active'); };
+        const showAlert = (message, isError = true) => { 
+            const el = document.getElementById('alertBox'); 
+            el.querySelector('p').textContent = message; 
+            el.className = `fixed top-5 right-5 z-50 text-white py-2 px-4 rounded-lg shadow-md ${isError ? 'bg-red-500' : 'bg-blue-500'}`; 
+            el.classList.remove('hidden'); 
+            setTimeout(() => el.classList.add('hidden'), 3000); 
+        };
+        const hashString = str => str.split('').reduce((hash, char) => ((hash << 5) - hash + char.charCodeAt(0)) | 0, 0).toString();
+
+        const saveDb = () => localStorage.setItem('clanvasDb', JSON.stringify(db));
+        
+        const getInitialData = () => {
+            const defaultPassHash = hashString('123456');
+            const grades = [10, 11, 12];
+            const letters = 'ABCDEFGHIJKL'.split('');
+            const generatedClasses = [];
+            let isFirst = true;
+
+            grades.forEach(grade => {
+                letters.forEach(letter => {
+                    const classId = isFirst ? 'class-1' : `class-${grade}${letter}-${Date.now()}`;
+                    const className = `${grade} ${letter}`;
+                    
+                    const classData = {
+                        id: classId, name: className, lessons: [], picket: [], organigram: {}
+                    };
+
+                    if (isFirst) {
+                        classData.lessons = [ { day: 'Senin', time: '07:00-08:30', subject: 'Matematika', teacher: 'Bu Dini' }, { day: 'Selasa', time: '10:15-11:45', subject: 'Bahasa Indonesia', teacher: 'Bu Rina' } ];
+                        classData.picket = [{ day: 'Senin', members: ['Andi', 'Budi', 'Citra'] }];
+                        classData.organigram = { waliKelas: 'Bapak Agus S.Pd.', ketuaMurid: 'Budi Santoso', wakilKetua: 'Citra Lestari', sekretaris1: 'Dina Ayunda', sekretaris2: 'Eka Putri', bendahara1: 'Fani Wijaya', bendahara2: 'Gilang Ramadhan', anggota: 'Andi, Budi, Citra, Dina, Eka, Fani, Gilang, dan seluruh siswa kelas.' };
+                    }
+                    
+                    generatedClasses.push(classData);
+                    isFirst = false;
+                });
+            });
+
+            return {
+                users: [
+                    { id: 'user-admin', email: 'admin@sekolah.id', passwordHash: defaultPassHash, role: 'Admin' },
+                    { id: 'user-siswa', email: 'siswa.keren@sekolah.id', passwordHash: defaultPassHash, role: 'Siswa', grade: '10', selectedClassId: 'class-1', notificationsEnabled: false, moodJournal: [] }
+                ],
+                classes: generatedClasses,
+                miniNotes: {
+                    quote: "Pendidikan adalah senjata paling ampuh yang bisa kamu gunakan untuk mengubah dunia.",
+                    announcement: "Jangan lupa, besok ada kerja bakti pukul 07:00."
+                }
+            };
+        };
+
+        const loadDb = () => { const data = localStorage.getItem('clanvasDb'); db = data ? JSON.parse(data) : getInitialData(); db.users.forEach(u => { if(u.role === 'Siswa' && u.notificationsEnabled === undefined) u.notificationsEnabled = false; if(u.moodJournal === undefined) u.moodJournal = []; if(u.role === 'Siswa' && u.grade === undefined) u.grade = '10'; }); if(!db.miniNotes) db.miniNotes = getInitialData().miniNotes; saveDb(); };
+
+        const routeUser = () => { if (!currentUser) return; const user = db.users.find(u => u.id === currentUser.id); if (currentUser.role === 'Admin') { renderAdminDashboard(); showView('adminDashboard'); } else { if (user && user.selectedClassId) { renderStudentDashboard(user.selectedClassId); showView('studentDashboard'); } else { renderClassSelection(); showView('classSelection'); } } };
+        const handleLogin = (email, pass) => { const user = db.users.find(u => u.email === email && u.passwordHash === hashString(pass)); if (user) { currentUser = { ...user }; sessionStorage.setItem('clanvasUser', JSON.stringify(currentUser)); routeUser(); } else { showAlert('Username atau password salah.'); } };
+        const handleRegister = (email, pass, role, grade) => { if (db.users.some(u => u.email === email)) return showAlert('Email sudah terdaftar.'); db.users.push({ id: `user-${Date.now()}`, email, passwordHash: hashString(pass), role, grade, selectedClassId: null, notificationsEnabled: false, moodJournal: [] }); saveDb(); showAlert('Pendaftaran berhasil! Silakan masuk.', false); toggleAuthMode(false); };
+        const handleLogout = () => { currentUser = null; sessionStorage.removeItem('clanvasUser'); showView('landing'); };
+        const checkSession = () => { const user = sessionStorage.getItem('clanvasUser'); if (user) { currentUser = JSON.parse(user); routeUser(); } else { showView('landing'); } };
+        const toggleAuthMode = (isRegister) => { const el = { form: document.getElementById('authForm'), title: document.getElementById('formTitle'), submitBtn: document.getElementById('authSubmitBtn'), toggleText: document.getElementById('authToggleText'), toggleBtn: document.getElementById('authToggleBtn'), roleSelection: document.getElementById('roleSelection'), gradeSelection: document.getElementById('gradeSelection') }; isRegisterMode = isRegister; el.form.reset(); el.title.textContent = isRegisterMode ? 'Daftar Akun Baru' : 'Masuk Akun'; el.submitBtn.textContent = isRegisterMode ? 'Daftar' : 'Masuk'; el.toggleText.textContent = isRegisterMode ? 'Sudah punya akun?' : 'Belum punya akun?'; el.toggleBtn.textContent = isRegisterMode ? 'Masuk di sini' : 'Daftar di sini'; el.roleSelection.classList.toggle('hidden', !isRegisterMode); el.gradeSelection.classList.toggle('hidden', !isRegisterMode); };
+        
+        // 2. Fungsi untuk menampilkan nama depan dari email
+        const formatUserName = (email) => {
+            if (!email || !email.includes('@')) return "Siswa";
+            const namePart = email.split('@')[0];
+            return namePart
+                .replace(/[._-]/g, ' ') 
+                .split(' ')
+                .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+                .join(' ');
+        };
+
+        const renderStudentDashboard = (classId) => {
+            const cls = db.classes.find(c => c.id === classId); if (!cls) { handleLogout(); return; }
+            const userName = formatUserName(currentUser.email);
+            const date = new Date(), fullDate = date.toLocaleDateString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+            views.studentDashboard.innerHTML = `
+                <div class="max-w-6xl mx-auto p-4 md:p-8">
+                    <header class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
+                        <div>
+                            <h2 class="text-3xl font-bold" style="color: var(--c-text-dark);">Selamat Datang, ${userName}!</h2>
+                            <p class="text-xl font-semibold" style="color: var(--c-text-light);">Kelas ${cls.name}</p>
+                            <p class="text-sm font-medium" style="color: var(--c-text-light);">${fullDate}</p>
+                        </div>
+                        <div class="flex flex-col md:flex-row gap-4 items-start md:items-center">
+                            <div class="flex items-center gap-2 bg-white p-2 rounded-lg shadow-sm"><span class="font-semibold text-sm">Notifikasi Jadwal:</span><label class="toggle-switch"><input type="checkbox" class="notificationToggle" ${currentUser.notificationsEnabled ? 'checked' : ''}><span class="slider"></span></label></div>
+                            <div class="flex gap-2"><button class="changeClassBtn text-sm font-semibold py-2 px-4 rounded-lg transition" style="background-color: var(--c-white); border: 1px solid var(--c-peach-dark); color: var(--c-peach-dark);">Ganti Kelas</button><button class="logoutBtn text-sm text-white font-semibold py-2 px-4 rounded-lg transition" style="background-color: var(--c-blue-dark);">Logout</button></div>
+                        </div>
+                    </header>
+                    <div class="mb-6 grid grid-cols-1 md:grid-cols-3 gap-3 md:gap-6" id="mainTabContainer">
+                        <button class="main-tab-btn p-4 bg-white rounded-lg shadow-md font-semibold active" data-tab="jadwalPelajaran"><i class="fas fa-calendar-alt mr-2"></i>Jadwal Pelajaran</button>
+                        <button class="main-tab-btn p-4 bg-white rounded-lg shadow-md font-semibold" data-tab="jadwalPiket"><i class="fas fa-broom mr-2"></i>Jadwal Piket</button>
+                        <button class="main-tab-btn p-4 bg-white rounded-lg shadow-md font-semibold" data-tab="organigram"><i class="fas fa-users mr-2"></i>Organigram Kelas</button>
+                    </div>
+                    <div id="tabContentContainer">${renderTabContent(cls, 'jadwalPelajaran')}</div>
+                    <div class="mt-6 grid grid-cols-1 md:grid-cols-2 gap-6">
+                         <div class="bg-white p-4 rounded-lg shadow-md" style="border-top: 4px solid var(--c-yellow-dark);"><h3 class="font-bold text-lg mb-2" style="color: var(--c-text-dark);">Mini Notes</h3><div class="p-3 rounded-lg mb-2" style="background-color: var(--c-yellow);"><p class="text-sm font-semibold" style="color: #A67B00;">Quote Hari Ini:</p><p class="text-sm italic" style="color: var(--c-text-light);">"${db.miniNotes.quote}"</p></div><div class="p-3 rounded-lg" style="background-color: #E3F2FD;"><p class="text-sm font-semibold" style="color: #1E88E5;">Info Singkat:</p><p class="text-sm" style="color: var(--c-text-light);">${db.miniNotes.announcement}</p></div></div>
+                         <div class="bg-white p-4 rounded-lg shadow-md" style="border-top: 4px solid var(--c-peach-dark);"><h3 class="font-bold text-lg mb-3" style="color: var(--c-text-dark);">Jurnal Mood</h3><p class="text-sm text-center mb-3">Bagaimana perasaanmu hari ini?</p><div class="flex justify-around items-center" id="moodEmojiContainer">${['😄', '😊', '😐', '😔', '😠'].map(emoji => `<span class="text-3xl mood-emoji" data-mood="${emoji}">${emoji}</span>`).join('')}</div><div class="text-center mt-4"><button id="showMoodStatsBtn" class="text-sm font-semibold hover:underline" style="color: var(--c-blue-dark);">Lihat Rekap Bulan Ini</button></div></div>
+                    </div>
+                </div>`;
+            updateMoodSelection();
+            if(currentUser.notificationsEnabled) showDailyReminders(cls);
+        };
+        const renderTabContent = (cls, activeTab) => {
+            const date = new Date(), todayName = date.toLocaleDateString('id-ID', { weekday: 'long' });
+            const allDays = ["Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu"];
+            const todayLessons = (cls.lessons || []).filter(l => l.day === todayName).sort((a,b) => a.time.localeCompare(b.time));
+            const dayPicket = (cls.picket || []).find(p => p.day === todayName);
+            let content = '';
+            if (activeTab === 'jadwalPelajaran') {
+                content = `<div class="content-tab active"><div class="flex gap-4 mb-4 p-1 rounded-lg" style="background-color: #E3F2FD;"><button class="schedule-view-btn flex-1 py-2 px-4 rounded-md font-semibold active" data-view="today">Hari Ini</button><button class="schedule-view-btn flex-1 py-2 px-4 rounded-md font-semibold" data-view="weekly">Mingguan</button></div><div id="scheduleTodayContainer">${todayLessons.length ? todayLessons.map(l => `<div class="bg-white p-4 rounded-lg border mb-3" style="border-color: var(--c-border);"><div class="flex justify-between items-center"><span class="font-bold text-lg" style="color: var(--c-text-dark);">${l.subject}</span><span class="text-sm font-semibold px-2 py-1 rounded-full" style="background-color: var(--c-yellow); color: var(--c-text-dark);">${l.time}</span></div><p style="color: var(--c-text-light);" class="mt-1">${l.teacher}</p></div>`).join('') : `<div class="bg-white p-6 rounded-lg text-center" style="color: var(--c-text-light);">Tidak ada jadwal pelajaran hari ini.</div>`}</div><div id="scheduleWeeklyContainer" class="hidden grid grid-cols-1 lg:grid-cols-2 gap-4">${allDays.map(day => `<div class="bg-white p-3 rounded-lg shadow-sm"><h4 class="font-bold text-center border-b pb-2 mb-2">${day}</h4>${(cls.lessons || []).filter(l => l.day === day).sort((a,b) => a.time.localeCompare(b.time)).map(l => `<div class="mb-1 text-sm"><p class="font-semibold">${l.subject}</p><p class="text-xs" style="color: var(--c-text-light);">${l.time} - ${l.teacher}</p></div>`).join('') || '<p class="text-xs text-center text-gray-400">Libur</p>'}</div>`).join('')}</div></div>`;
+            } else if (activeTab === 'jadwalPiket') {
+                content = `<div class="content-tab active"><div class="bg-white p-4 rounded-lg shadow-md mb-4"><h3 class="font-bold text-lg text-center" style="color: var(--c-text-dark);">Piket Hari Ini (${todayName})</h3><div class="text-center mt-2" style="color: var(--c-text-light);">${dayPicket && dayPicket.members.length > 0 ? dayPicket.members.join(', ') : 'Tidak ada piket hari ini.'}</div></div><div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">${allDays.map(day => `<div class="bg-white p-4 rounded-lg shadow-md"><h4 class="font-bold text-center border-b pb-2 mb-2">${day}</h4>${((cls.picket || []).find(p => p.day === day)?.members || []).map(m => `<li class="list-disc list-inside">${m}</li>`).join('') || '<p class="text-sm text-center text-gray-400">-</p>'}</div>`).join('')}</div></div>`;
+            } else if (activeTab === 'organigram') {
+                const org = cls.organigram || {};
+                content = `<div class="content-tab active"><div class="bg-white p-6 rounded-xl shadow-md org-chart"><h3 class="text-2xl font-bold text-center mb-8">Struktur Organisasi Kelas</h3><div class="org-level"><div class="org-node"><div class="org-role">Wali Kelas</div><div class="org-name">${org.waliKelas || '-'}</div></div></div><div class="org-level"><div class="org-node"><div class="org-role">Ketua Kelas</div><div class="org-name">${org.ketuaMurid || '-'}</div></div><div class="org-node"><div class="org-role">Wakil Ketua Kelas</div><div class="org-name">${org.wakilKetua || '-'}</div></div></div><div class="org-level org-grid"><div class="org-node"><div class="org-role">Sekretaris 1</div><div class="org-name">${org.sekretaris1 || '-'}</div></div><div class="org-node"><div class="org-role">Sekretaris 2</div><div class="org-name">${org.sekretaris2 || '-'}</div></div><div class="org-node"><div class="org-role">Bendahara 1</div><div class="org-name">${org.bendahara1 || '-'}</div></div><div class="org-node"><div class="org-role">Bendahara 2</div><div class="org-name">${org.bendahara2 || '-'}</div></div></div><div class="mt-6 border-t pt-4"><h4 class="font-semibold text-lg" style="color: var(--c-text-dark);">Anggota Kelas</h4><p class="text-sm whitespace-pre-wrap mt-2" style="color: var(--c-text-light);">${org.anggota || '-'}</p></div></div></div>`;
+            }
+            return content;
+        };
+        const renderAdminDashboard = () => { views.adminDashboard.innerHTML = `<div class="max-w-6xl mx-auto p-4 md:p-8"><header class="flex justify-between items-center mb-8"><h2 class="text-3xl font-bold" style="color: var(--c-text-dark);">Dasbor Admin</h2><button class="logoutBtn text-white font-semibold py-2 px-4 rounded-lg transition" style="background-color: var(--c-blue-dark);">Logout</button></header><div class="grid grid-cols-1 md:grid-cols-2 gap-6"><div><h3 class="text-xl font-semibold mb-2">Kelola Kelas</h3><div class="mb-4"><button id="addClassBtn" class="font-bold py-2 px-5 rounded-lg transition w-full" style="background-color: var(--c-peach-dark); color: var(--c-white);"><i class="fas fa-plus mr-2"></i>Tambah Kelas Baru</button></div><div id="adminClassList" class="space-y-2 bg-white p-3 rounded-lg shadow-inner">${db.classes.map(cls => `<div class="p-3 border rounded-lg flex justify-between items-center"><p class="font-bold">${cls.name}</p><div><button data-class-id="${cls.id}" class="edit-schedule-btn text-white text-xs font-semibold py-1 px-2 rounded transition mr-1" style="background-color: var(--c-blue-dark);">Kelola</button><button data-class-id="${cls.id}" data-class-name="${cls.name}" class="delete-class-btn bg-red-500 text-white text-xs font-semibold py-1 px-2 rounded transition">Hapus</button></div></div>`).join('')}</div></div><div class="bg-white p-4 rounded-lg shadow-md"><h3 class="text-xl font-semibold mb-2">Kelola Mini Notes</h3><div class="space-y-2"><label class="text-sm font-medium">Quote</label><textarea id="quoteInput" class="w-full border p-2 rounded-md h-20">${db.miniNotes.quote}</textarea><label class="text-sm font-medium">Info Singkat</label><textarea id="announcementInput" class="w-full border p-2 rounded-md h-24">${db.miniNotes.announcement}</textarea><button id="saveNotesBtn" class="w-full text-white font-bold py-2 rounded-lg transition" style="background-color: var(--c-blue-dark);">Simpan Notes</button></div></div></div></div>`; };
+        const renderClassSelection = () => { 
+            const userGrade = currentUser.grade;
+            const availableClasses = db.classes.filter(c => c.name.startsWith(userGrade));
+
+            views.classSelection.innerHTML = `<div class="max-w-4xl mx-auto p-4 md:p-8"><h2 class="text-3xl font-bold text-center mb-2">Pilih Kelasmu</h2><p class="text-center text-gray-500 mb-8">Hanya kelas tingkat ${userGrade} yang ditampilkan.</p><div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">${
+                availableClasses.length > 0 
+                ? availableClasses.map(cls => `<button data-class-id="${cls.id}" class="class-select-btn p-6 bg-white rounded-xl shadow-md hover:shadow-lg transition text-center font-bold text-lg hover:bg-blue-100">${cls.name}</button>`).join('')
+                : `<p class="col-span-full text-center text-gray-500 bg-white p-6 rounded-xl">Belum ada kelas untuk tingkat ${userGrade} yang dibuat oleh Admin.</p>`
+            }</div><div class="text-center mt-8"><button class="logoutBtn hover:underline" style="color: var(--c-blue-dark);">Logout</button></div></div>`; 
+        };
+        const renderScheduleEditor = (classId) => {
+            currentEditingClassId = classId; const cls = db.classes.find(c => c.id === classId); if (!cls) return;
+            document.getElementById('scheduleModalTitle').textContent = `Kelola Jadwal & Info: ${cls.name}`;
+            const dayOptions = (selected) => ['Senin','Selasa','Rabu','Kamis','Jumat','Sabtu'].map(d => `<option value="${d}" ${d === selected ? 'selected' : ''}>${d}</option>`).join('');
+            document.getElementById('lessonScheduleFormContainer').innerHTML = (cls.lessons || []).map(l => `<div class="lesson-row grid grid-cols-1 md:grid-cols-8 gap-1 items-center"><select data-key="day" class="col-span-2 p-1 border rounded">${dayOptions(l.day)}</select><input data-key="time" value="${l.time||''}" class="col-span-2 p-1 border rounded" placeholder="Waktu (cth: 07:00-08:30)"><input data-key="subject" value="${l.subject||''}" class="col-span-2 p-1 border rounded" placeholder="Mata Pelajaran"><input data-key="teacher" value="${l.teacher||''}" class="col-span-1 p-1 border rounded" placeholder="Guru"><button class="remove-row-btn col-span-1 bg-red-200 hover:bg-red-300 text-red-800 p-1 rounded">X</button></div>`).join('');
+            document.getElementById('picketScheduleFormContainer').innerHTML = (cls.picket || []).map(p => `<div class="picket-row grid grid-cols-1 md:grid-cols-4 gap-2 items-center"><select data-key="day" class="p-2 border rounded">${dayOptions(p.day)}</select><input data-key="members" value="${(p.members||[]).join(', ')}" class="col-span-2 p-2 border rounded" placeholder="Anggota, pisahkan dengan koma"><button class="remove-row-btn col-span-1 bg-red-200 hover:bg-red-300 text-red-800 p-2 rounded">X</button></div>`).join('');
+            const org = cls.organigram || {}; document.getElementById('organigramFormContainer').innerHTML = `<input type="text" data-key="waliKelas" class="w-full p-2 border rounded" placeholder="Nama Wali Kelas" value="${org.waliKelas||''}"><input type="text" data-key="ketuaMurid" class="w-full p-2 border rounded" placeholder="Nama Ketua Murid" value="${org.ketuaMurid||''}"><input type="text" data-key="wakilKetua" class="w-full p-2 border rounded" placeholder="Nama Wakil Ketua" value="${org.wakilKetua||''}"><div class="grid grid-cols-2 gap-2"><input type="text" data-key="sekretaris1" class="w-full p-2 border rounded" placeholder="Sekretaris 1" value="${org.sekretaris1||''}"><input type="text" data-key="sekretaris2" class="w-full p-2 border rounded" placeholder="Sekretaris 2" value="${org.sekretaris2||''}"></div><div class="grid grid-cols-2 gap-2"><input type="text" data-key="bendahara1" class="w-full p-2 border rounded" placeholder="Bendahara 1" value="${org.bendahara1||''}"><input type="text" data-key="bendahara2" class="w-full p-2 border rounded" placeholder="Bendahara 2" value="${org.bendahara2||''}"></div><textarea data-key="anggota" class="w-full p-2 border rounded h-24" placeholder="Daftar anggota kelas...">${org.anggota||''}</textarea>`;
+            showModal('schedule');
+        };
+        const updateMoodSelection = () => { const todayStr = new Date().toISOString().split('T')[0]; const todayMood = currentUser.moodJournal.find(m => m.date === todayStr); document.querySelectorAll('.mood-emoji').forEach(el => { el.classList.toggle('selected', todayMood && el.dataset.mood === todayMood.mood); }); };
+        const showDailyReminders = (cls) => { const reminderBox = document.getElementById('reminderNotification'), reminderContent = document.getElementById('reminderContent'), todayName = new Date().toLocaleDateString('id-ID', { weekday: 'long' }); const todayLessons = (cls.lessons || []).filter(l => l.day === todayName).sort((a,b) => a.time.localeCompare(b.time)); if (todayLessons.length > 0) { reminderContent.innerHTML = `<ul class="list-disc list-inside space-y-1">${todayLessons.map(l => `<li><strong>${l.subject}</strong> (${l.time})</li>`).join('')}</ul>`; reminderBox.classList.remove('hidden', 'translate-x-full'); }};
+        const renderMoodStatistics = () => {
+            const now = new Date(); const currentMonth = now.getMonth(); const currentYear = now.getFullYear();
+            document.getElementById('moodMonthYear').textContent = now.toLocaleDateString('id-ID', { month: 'long', year: 'numeric' });
+            const moods = ['😄', '😊', '😐', '😔', '😠']; const moodCounts = Object.fromEntries(moods.map(m => [m, 0])); let totalEntries = 0;
+            currentUser.moodJournal.forEach(entry => { const entryDate = new Date(entry.date); if (entryDate.getMonth() === currentMonth && entryDate.getFullYear() === currentYear) { if (moodCounts[entry.mood] !== undefined) { moodCounts[entry.mood]++; totalEntries++; } } });
+            const chartContainer = document.getElementById('moodStatsChart'); chartContainer.innerHTML = ''; let summaryText = 'Belum ada data mood untuk bulan ini.';
+            if (totalEntries > 0) { let maxMood = { mood: '', count: -1}; moods.forEach(mood => { const count = moodCounts[mood]; if (count > maxMood.count) maxMood = { mood, count }; const percentage = (count / totalEntries) * 100; const barHeight = isNaN(percentage) ? 0 : percentage; chartContainer.insertAdjacentHTML('beforeend', `<div class="stat-bar-wrapper"><div class="stat-percent">${percentage.toFixed(0)}%</div><div class="stat-bar" style="height: ${barHeight}%" title="${count} kali"></div><div class="stat-label">${mood}</div></div>`); }); const maxMoodPercent = ((maxMood.count / totalEntries) * 100).toFixed(0); summaryText = `Bulan ini, kamu paling sering merasa ${maxMood.mood} (${maxMoodPercent}%). Terus semangat!`; }
+            document.getElementById('moodSummary').textContent = summaryText; showModal('moodStats');
+        };
+        document.getElementById('goToLoginSignInBtn').addEventListener('click', () => { toggleAuthMode(false); showView('login'); });
+        document.getElementById('goToLoginSignUpBtn').addEventListener('click', () => { toggleAuthMode(true); showView('login'); });
+        document.getElementById('backToLandingBtn').addEventListener('click', () => showView('landing'));
+        document.getElementById('authToggleBtn').addEventListener('click', () => toggleAuthMode(!isRegisterMode));
+        document.getElementById('authForm').addEventListener('submit', (e) => { e.preventDefault(); const email = document.getElementById('email').value, password = document.getElementById('password').value; if (isRegisterMode) { const role = document.querySelector('input[name="role"]:checked').value; const grade = document.getElementById('grade').value; handleRegister(email, password, role, grade); } else { handleLogin(email, password); } });
+        document.getElementById('app').addEventListener('click', (e) => {
+            const target = e.target.closest('button, .schedule-view-btn, .delete-class-btn, .class-select-btn, .main-tab-btn, .edit-schedule-btn, .mood-emoji, .remove-row-btn, .closeReminderBtn') || e.target;
+            if (target.matches('.logoutBtn')) handleLogout();
+            if (target.matches('.changeClassBtn')) { const user = db.users.find(u=>u.id===currentUser.id); if(user){ user.selectedClassId = null; saveDb(); currentUser.selectedClassId = null; sessionStorage.setItem('clanvasUser', JSON.stringify(currentUser)); routeUser(); } }
+            if (target.matches('.schedule-view-btn')) { const parent = target.closest('.content-tab'); parent.querySelectorAll('.schedule-view-btn').forEach(b => b.classList.remove('active')); target.classList.add('active'); const view = target.dataset.view; parent.querySelector('#scheduleTodayContainer').style.display = view === 'today' ? 'block' : 'none'; parent.querySelector('#scheduleWeeklyContainer').style.display = view === 'weekly' ? 'grid' : 'none'; }
+            if (target.matches('#addClassBtn')) {
+                document.getElementById('classForm').reset(); 
+                const classLetterSelect = document.getElementById('classLetter');
+                classLetterSelect.innerHTML = 'ABCDEFGHIJKL'.split('').map(l => `<option value="${l}">${l}</option>`).join('');
+                document.getElementById('classId').value = ''; 
+                document.getElementById('classModalTitle').textContent = 'Tambah Kelas Baru'; 
+                showModal('class'); 
+            }
+            if (target.matches('.delete-class-btn')) { classIdToDelete = target.dataset.classId; const className = target.dataset.className; document.getElementById('confirmText').textContent = `Apakah Anda yakin ingin menghapus kelas "${className}"? Tindakan ini tidak dapat diurungkan.`; showModal('confirm'); }
+            if (target.matches('.class-select-btn')) { const classId = target.dataset.classId; const userIndex = db.users.findIndex(u => u.id === currentUser.id); if (userIndex !== -1) { db.users[userIndex].selectedClassId = classId; saveDb(); currentUser.selectedClassId = classId; sessionStorage.setItem('clanvasUser', JSON.stringify(currentUser)); routeUser(); } }
+            if (target.matches('.main-tab-btn')) { document.querySelectorAll('.main-tab-btn').forEach(el => el.classList.remove('active')); target.classList.add('active'); const cls = db.classes.find(c => c.id === currentUser.selectedClassId); document.getElementById('tabContentContainer').innerHTML = renderTabContent(cls, target.dataset.tab); }
+            if (target.matches('.edit-schedule-btn')) { renderScheduleEditor(target.dataset.classId); }
+            if (target.matches('#saveNotesBtn')) { db.miniNotes.quote = document.getElementById('quoteInput').value; db.miniNotes.announcement = document.getElementById('announcementInput').value; saveDb(); showAlert('Mini Notes berhasil disimpan.', false); }
+            if (target.matches('.mood-emoji')) { const mood = target.dataset.mood, todayStr = new Date().toISOString().split('T')[0], user = db.users.find(u => u.id === currentUser.id), moodIndex = user.moodJournal.findIndex(m => m.date === todayStr); if(moodIndex > -1) user.moodJournal[moodIndex].mood = mood; else user.moodJournal.push({date: todayStr, mood}); saveDb(); currentUser.moodJournal = user.moodJournal; sessionStorage.setItem('clanvasUser', JSON.stringify(currentUser)); updateMoodSelection(); }
+            if (target.matches('.remove-row-btn')) { target.closest('.lesson-row, .picket-row').remove(); }
+            if (e.target.matches('.notificationToggle')) { const isEnabled = e.target.checked; const user = db.users.find(u => u.id === currentUser.id); if(user) { user.notificationsEnabled = isEnabled; currentUser.notificationsEnabled = isEnabled; saveDb(); sessionStorage.setItem('clanvasUser', JSON.stringify(currentUser)); showAlert(`Notifikasi jadwal ${isEnabled ? 'diaktifkan' : 'dimatikan'}.`, false); const reminderBox = document.getElementById('reminderNotification'); if(!isEnabled) { reminderBox.classList.add('translate-x-full'); setTimeout(() => reminderBox.classList.add('hidden'), 300); } else { const cls = db.classes.find(c => c.id === currentUser.selectedClassId); if(cls) showDailyReminders(cls); } } }
+            if (target.matches('.closeReminderBtn')) { const reminderBox = document.getElementById('reminderNotification'); reminderBox.classList.add('translate-x-full'); setTimeout(() => reminderBox.classList.add('hidden'), 300); }
+            if (target.matches('#showMoodStatsBtn')) { renderMoodStatistics(); }
+        });
+        document.querySelectorAll('.modal-close-btn').forEach(btn => btn.addEventListener('click', (e) => { const modal = e.target.closest('.fixed-modal'); if (modal) modal.classList.remove('active'); }));
+        document.getElementById('classForm').addEventListener('submit', (e) => { 
+            e.preventDefault(); 
+            const id = document.getElementById('classId').value;
+            const grade = document.getElementById('classGrade').value;
+            const letter = document.getElementById('classLetter').value;
+            const name = `${grade} ${letter}`;
+            
+            if (db.classes.some(c => c.name === name && c.id !== id)) {
+                showAlert(`Kelas ${name} sudah ada.`);
+                return;
+            }
+
+            if(id) { 
+                const cls = db.classes.find(c => c.id === id); 
+                if(cls) cls.name = name; 
+            } else { 
+                db.classes.push({id: `class-${Date.now()}`, name, lessons: [], picket: [], organigram: {}}); 
+            } 
+            saveDb(); 
+            renderAdminDashboard(); 
+            closeModal('class'); 
+        });
+        document.getElementById('saveScheduleChangesBtn').addEventListener('click', () => { const cls = db.classes.find(c => c.id === currentEditingClassId); if(!cls) return; cls.lessons = [...document.querySelectorAll('#lessonScheduleFormContainer .lesson-row')].map(r => ({ day: r.querySelector('[data-key=day]').value, time: r.querySelector('[data-key=time]').value, subject: r.querySelector('[data-key=subject]').value, teacher: r.querySelector('[data-key=teacher]').value })); cls.picket = [...document.querySelectorAll('#picketScheduleFormContainer .picket-row')].map(r => ({ day: r.querySelector('[data-key=day]').value, members: r.querySelector('[data-key=members]').value.split(',').map(m=>m.trim()).filter(Boolean) })); cls.organigram = {}; document.querySelectorAll('#organigramFormContainer input, #organigramFormContainer textarea').forEach(i => { cls.organigram[i.dataset.key] = i.value; }); saveDb(); closeModal('schedule'); showAlert('Jadwal & Info Kelas berhasil diperbarui.', false); });
+        document.getElementById('addLessonBtn').addEventListener('click', () => { const container = document.getElementById('lessonScheduleFormContainer'); const dayOptions = ['Senin','Selasa','Rabu','Kamis','Jumat','Sabtu'].map(d=>`<option value="${d}">${d}</option>`).join(''); container.insertAdjacentHTML('beforeend', `<div class="lesson-row grid grid-cols-1 md:grid-cols-8 gap-1 items-center"><select data-key="day" class="col-span-2 p-1 border rounded">${dayOptions}</select><input data-key="time" class="col-span-2 p-1 border rounded" placeholder="Waktu"><input data-key="subject" class="col-span-2 p-1 border rounded" placeholder="Mapel"><input data-key="teacher" class="col-span-1 p-1 border rounded" placeholder="Guru"><button class="remove-row-btn col-span-1 bg-red-200 hover:bg-red-300 text-red-800 p-1 rounded">X</button></div>`); });
+        document.getElementById('addPicketBtn').addEventListener('click', () => { const container = document.getElementById('picketScheduleFormContainer'); const dayOptions = ['Senin','Selasa','Rabu','Kamis','Jumat','Sabtu'].map(d=>`<option value="${d}">${d}</option>`).join(''); container.insertAdjacentHTML('beforeend', `<div class="picket-row grid grid-cols-1 md:grid-cols-4 gap-2 items-center"><select data-key="day" class="p-2 border rounded">${dayOptions}</select><input data-key="members" class="col-span-2 p-2 border rounded" placeholder="Anggota, pisahkan koma"><button class="remove-row-btn col-span-1 bg-red-200 hover:bg-red-300 text-red-800 p-2 rounded">X</button></div>`); });
+        document.getElementById('cancelDeleteBtn').addEventListener('click', () => closeModal('confirm'));
+        document.getElementById('confirmDeleteBtn').addEventListener('click', () => { if (classIdToDelete) { db.classes = db.classes.filter(c => c.id !== classIdToDelete); saveDb(); renderAdminDashboard(); showAlert('Kelas berhasil dihapus.', false); classIdToDelete = null; } closeModal('confirm'); });
+        loadDb();
+        checkSession();
+    });
+    </script>
+</body>
+</html>
